@@ -35,8 +35,8 @@ EVENT_DATETIME = datetime.datetime.strptime(
 last_check = datetime.datetime.now()
 ZOOM_LINK = os.getenv("ZOOM_LINK")
 GROUP_INVITE_LINK = os.getenv("GROUP_INVITE_LINK")
-PAYPAL_LINK = "https://paypal.me/yourname"
-RUB_CARD_TEXT = "Оплата в рублях:\nКарта: XXXX XXXX XXXX XXXX"
+PAYPAL_LINK = os.getenv("PAYPAL_LINK")
+RUB_CARD_TEXT = os.getenv("RUB_CARD_TEXT")
 
 
 # ================== FSM ==================
