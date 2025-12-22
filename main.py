@@ -8,7 +8,7 @@ import asyncio
 import sqlite3
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -37,7 +37,62 @@ ZOOM_LINK = os.getenv("ZOOM_LINK")
 GROUP_INVITE_LINK = os.getenv("GROUP_INVITE_LINK")
 PAYPAL_LINK = os.getenv("PAYPAL_LINK")
 RUB_CARD_TEXT = os.getenv("RUB_CARD_TEXT")
+# PAYPAL_LINK = "https://paypal.me/yourname"
+# RUB_CARD_TEXT = "Оплата в рублях:\nКарта: XXXX XXXX XXXX XXXX"
 
+# ================== ТЕКСТОВЫЕ БЛОКИ ==================
+# Блок 1: пункты 1-2
+EVENT_PAGE_1 = """Менопауза 3D. Помогающий взгляд изнутри. 
+
+Программа: 
+
+1. Конечная остановка или переход? Смыслы менопаузы: что она нам приносит, и как нам это использовать. 
+
+2. Предвестники и признаки. Как понять, что менопауза близко, и что стоит делать в ожидании? 
+А что может повлиять на срок прихода менопаузы: придет она преждевременно,  или можно отсрочить?"""
+
+# Блок 2: пункт 3
+EVENT_PAGE_2 = """3. Физические симптомы.
+Приливы,  плохой сон, мигрени, сухость и зуд, и все остальное, чего мы боимся.
+Логика, взаимосвязи, сила проявления.
+Целесообразность и риски различных подходов с акцентом на качество жизни. 
+Разумная достаточность. Если я уже там, и использую разные способы - все ли я делаю, что могу, или можно еще улучшить ситуацию?"""
+
+# Блок 3: пункты 4-7
+EVENT_PAGE_3 = """4. Когнитивные изменения.  Концентрация, мышление, "туман в голове". Пройдёт или будет все хуже? 
+С чем можно мириться, а что можно и нужно корректировать.
+
+5. Эмоции и настроение.  Как выжить самой и никого не прибить. 
+
+6. Резюмируем: какие есть варианты улучшить свое  состояние на всех этапах, как оценить риски и выбрать свой способ.
+
+7. Ответы на вопросы."""
+
+# Блок 4: об авторе, дата, время, стоимость
+EVENT_PAGE_4 = """Об авторе.
+
+Софья Исакова:
+
+- я биолог, нутрициолог, health-ментор, телесный психолог;
+- работаю с клиентками в этом периоде, и помогаю им восстановить или выстроить заново свое хорошее самочувствие и взаимоотношения с телом;
+- наконец, мне 51, и я на пороге менопаузы, сама прохожу через эти состояния,  наблюдаю и экспериментирую."""
+
+# Блок 5: техническая инфа
+EVENT_PAGE_5 = """Мастер-класс пройдёт онлайн, в Zoom
+25 января, воскресенье 
+В 15.00 СЕТ
+16.00 Иерусалим/ Киев/ Ларнака
+17.00 Мск
+9.00 a.m. Нью-Йорк 
+
+Длительность 2,5 часа.
+
+Стоимость 40 € (оплата в любой валюте) 
+
+Мастер-класс будет записан, доступ к записи получат все, кто оплатил участие."""
+
+
+# ================== КОНЕЦ ТЕКСТОВЫХ БЛОКОВ ==================
 
 # ================== FSM ==================
 class Registration(StatesGroup):
@@ -50,12 +105,34 @@ class Registration(StatesGroup):
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
 
-# ================== KEYBOARDS ==================
-def start_kb():
-    kb = InlineKeyboardBuilder()
-    kb.button(text="Регистрация на мастер-класс", callback_data="register")
-    return kb.as_markup()
+# ================== КНОПКИ ==================
 
+# Кнопки "Далее" для страниц
+next_kb_1 = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="➡ Далее", callback_data="next_2")]
+])
+
+next_kb_2 = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="➡ Далее", callback_data="next_3")]
+])
+
+next_kb_3 = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="➡ Далее", callback_data="next_4")]
+])
+next_kb_4 = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="➡ Далее", callback_data="next_5")]
+])
+
+
+# ================== KEYBOARDS ==================
+# кнопка регистрации
+def start_kb():
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Регистрация на мастер-класс", callback_data="register")]
+    ])
+    return kb
+
+start_kb_markup = start_kb()
 
 def payment_kb():
     kb = InlineKeyboardBuilder()
@@ -134,15 +211,33 @@ def set_last_check(dt):
 
 
 # ================== HANDLERS ==================
+
+# ================== ОБРАБОТЧИК /start ==================
 @dp.message(CommandStart())
 async def start(msg: Message):
-    text = (
-        f"{EVENT_TITLE}\n"
-        f"Дата и время: {EVENT_DATETIME.strftime('%d.%m.%Y %H:%M')}\n\n"
-        "Нажмите кнопку ниже, чтобы зарегистрироваться."
-    )
-    await msg.answer(text, reply_markup=start_kb())
+    await msg.answer(EVENT_PAGE_1, reply_markup=next_kb_1)
 
+# ================== CALLBACK ДЛЯ СТРАНИЦ ==================
+@dp.callback_query(F.data == "next_2")
+async def show_page_2(cb: CallbackQuery):
+    await cb.message.edit_reply_markup(reply_markup=None)  # убираем кнопку с первой страницы
+    await cb.message.answer(EVENT_PAGE_2, reply_markup=next_kb_2)
+
+@dp.callback_query(F.data == "next_3")
+async def show_page_3(cb: CallbackQuery):
+    await cb.message.edit_reply_markup(reply_markup=None)
+    await cb.message.answer(EVENT_PAGE_3, reply_markup=next_kb_3)
+
+@dp.callback_query(F.data == "next_4")
+async def show_page_4(cb: CallbackQuery):
+    await cb.message.edit_reply_markup(reply_markup=None)
+    await cb.message.answer(EVENT_PAGE_4, reply_markup=next_kb_4)
+
+# callback для перехода на 5-ю страницу
+@dp.callback_query(F.data == "next_5")
+async def show_page_5(cb: CallbackQuery):
+    await cb.message.edit_reply_markup(reply_markup=None)  # убираем кнопку с предыдущей страницы
+    await cb.message.answer(EVENT_PAGE_5, reply_markup=start_kb_markup)
 
 @dp.callback_query(F.data == "register")
 async def register(cb: CallbackQuery, state: FSMContext):
@@ -320,8 +415,8 @@ async def reminders():
 
         for user_id, reminder_24h_sent, reminder_1h_sent in rows:
             # 24 часа до события
-            # t24 = EVENT_DATETIME - timedelta(hours=24)
-            t24 = EVENT_DATETIME - timedelta(minutes=7)
+            t24 = EVENT_DATETIME - timedelta(hours=24)
+            #t24 = EVENT_DATETIME - timedelta(minutes=7)
             if not reminder_24h_sent and last_check < t24 <= now:
                 await bot.send_message(
                     user_id,
@@ -334,8 +429,8 @@ async def reminders():
                 conn.close()
 
             # 1 час до события
-            # t1 = EVENT_DATETIME - timedelta(hours=1)
-            t1 = EVENT_DATETIME - timedelta(minutes=3)
+            t1 = EVENT_DATETIME - timedelta(hours=1)
+            # t1 = EVENT_DATETIME - timedelta(minutes=3)
             if not reminder_1h_sent and last_check < t1 <= now:
                 await bot.send_message(
                     user_id,
