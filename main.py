@@ -8,7 +8,7 @@ import asyncio
 import sqlite3
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -21,7 +21,6 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
 
 # ================== CONFIG ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -36,103 +35,43 @@ last_check = datetime.datetime.now()
 ZOOM_LINK = os.getenv("ZOOM_LINK")
 GROUP_INVITE_LINK = os.getenv("GROUP_INVITE_LINK")
 PAYPAL_LINK = os.getenv("PAYPAL_LINK")
-RUB_CARD_TEXT = os.getenv("RUB_CARD_TEXT")
+RUB_CARD_TEXT = os.getenv("RUB_CARD_TEXT", "").replace("\\n", "\n")
+
 # PAYPAL_LINK = "https://paypal.me/yourname"
 # RUB_CARD_TEXT = "Оплата в рублях:\nКарта: XXXX XXXX XXXX XXXX"
 
-# ================== ТЕКСТОВЫЕ БЛОКИ ==================
-# Блок 1: пункты 1-2
-EVENT_PAGE_1 = """Менопауза 3D. Помогающий взгляд изнутри. 
+EVENT_DESCRIPTION = """
+<b>Менопауза 3D. Помогающий взгляд изнутри.</b>
 
-Программа: 
+Здесь вы регистрируетесь на мастер-класс Софьи Исаковой и вносите оплату, после чего попадете в канал мероприятия.
+Там будут
+- напоминания о мастер-классе
+- ссылка для входа в ZOOM
+- возможность задать вопросы в комментариях.
+"""
 
-1. Конечная остановка или переход? Смыслы менопаузы: что она нам приносит, и как нам это использовать. 
-
-2. Предвестники и признаки. Как понять, что менопауза близко, и что стоит делать в ожидании? 
-А что может повлиять на срок прихода менопаузы: придет она преждевременно,  или можно отсрочить?"""
-
-# Блок 2: пункт 3
-EVENT_PAGE_2 = """3. Физические симптомы.
-Приливы,  плохой сон, мигрени, сухость и зуд, и все остальное, чего мы боимся.
-Логика, взаимосвязи, сила проявления.
-Целесообразность и риски различных подходов с акцентом на качество жизни. 
-Разумная достаточность. Если я уже там, и использую разные способы - все ли я делаю, что могу, или можно еще улучшить ситуацию?"""
-
-# Блок 3: пункты 4-7
-EVENT_PAGE_3 = """4. Когнитивные изменения.  Концентрация, мышление, "туман в голове". Пройдёт или будет все хуже? 
-С чем можно мириться, а что можно и нужно корректировать.
-
-5. Эмоции и настроение.  Как выжить самой и никого не прибить. 
-
-6. Резюмируем: какие есть варианты улучшить свое  состояние на всех этапах, как оценить риски и выбрать свой способ.
-
-7. Ответы на вопросы."""
-
-# Блок 4: об авторе, дата, время, стоимость
-EVENT_PAGE_4 = """Об авторе.
-
-Софья Исакова:
-
-- я биолог, нутрициолог, health-ментор, телесный психолог;
-- работаю с клиентками в этом периоде, и помогаю им восстановить или выстроить заново свое хорошее самочувствие и взаимоотношения с телом;
-- наконец, мне 51, и я на пороге менопаузы, сама прохожу через эти состояния,  наблюдаю и экспериментирую."""
-
-# Блок 5: техническая инфа
-EVENT_PAGE_5 = """Мастер-класс пройдёт онлайн, в Zoom
-25 января, воскресенье 
-В 15.00 СЕТ
-16.00 Иерусалим/ Киев/ Ларнака
-17.00 Мск
-9.00 a.m. Нью-Йорк 
-
-Длительность 2,5 часа.
-
-Стоимость 40 € (оплата в любой валюте) 
-
-Мастер-класс будет записан, доступ к записи получат все, кто оплатил участие."""
-
-
-# ================== КОНЕЦ ТЕКСТОВЫХ БЛОКОВ ==================
 
 # ================== FSM ==================
 class Registration(StatesGroup):
     full_name = State()
     username = State()
     email = State()
-    question = State()
-
+    
 # ================== BOT INIT ==================
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher()
 
-# ================== КНОПКИ ==================
-
-# Кнопки "Далее" для страниц
-next_kb_1 = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="➡ Далее", callback_data="next_2")]
-])
-
-next_kb_2 = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="➡ Далее", callback_data="next_3")]
-])
-
-next_kb_3 = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="➡ Далее", callback_data="next_4")]
-])
-next_kb_4 = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="➡ Далее", callback_data="next_5")]
-])
-
-
 # ================== KEYBOARDS ==================
+
 # кнопка регистрации
 def start_kb():
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Регистрация на мастер-класс", callback_data="register")]
+        [InlineKeyboardButton(text="👉 Записаться на мастер-класс", callback_data="register")]
     ])
     return kb
 
 start_kb_markup = start_kb()
+
 
 def payment_kb():
     kb = InlineKeyboardBuilder()
@@ -208,40 +147,25 @@ def set_last_check(dt):
     conn.commit()
     conn.close()
 
-
-
 # ================== HANDLERS ==================
+
 
 # ================== ОБРАБОТЧИК /start ==================
 @dp.message(CommandStart())
 async def start(msg: Message):
-    await msg.answer(EVENT_PAGE_1, reply_markup=next_kb_1)
 
-# ================== CALLBACK ДЛЯ СТРАНИЦ ==================
-@dp.callback_query(F.data == "next_2")
-async def show_page_2(cb: CallbackQuery):
-    await cb.message.edit_reply_markup(reply_markup=None)  # убираем кнопку с первой страницы
-    await cb.message.answer(EVENT_PAGE_2, reply_markup=next_kb_2)
+    photo = FSInputFile("images/cover.jpg")
 
-@dp.callback_query(F.data == "next_3")
-async def show_page_3(cb: CallbackQuery):
-    await cb.message.edit_reply_markup(reply_markup=None)
-    await cb.message.answer(EVENT_PAGE_3, reply_markup=next_kb_3)
-
-@dp.callback_query(F.data == "next_4")
-async def show_page_4(cb: CallbackQuery):
-    await cb.message.edit_reply_markup(reply_markup=None)
-    await cb.message.answer(EVENT_PAGE_4, reply_markup=next_kb_4)
-
-# callback для перехода на 5-ю страницу
-@dp.callback_query(F.data == "next_5")
-async def show_page_5(cb: CallbackQuery):
-    await cb.message.edit_reply_markup(reply_markup=None)  # убираем кнопку с предыдущей страницы
-    await cb.message.answer(EVENT_PAGE_5, reply_markup=start_kb_markup)
+    await msg.answer_photo(photo)
+    await asyncio.sleep(0.6)
+    await msg.answer(EVENT_DESCRIPTION, parse_mode="HTML")
+    
+    text = ("Чтобы продолжить, нажмите кнопку ниже.")
+    await msg.answer(text, reply_markup=start_kb())
 
 @dp.callback_query(F.data == "register")
 async def register(cb: CallbackQuery, state: FSMContext):
-    await cb.message.answer("Введите Фамилию и Имя:")
+    await cb.message.answer("Введите Фамилию и Имя (обязательное поле)")
     await state.set_state(Registration.full_name)
 
 
@@ -249,8 +173,8 @@ async def register(cb: CallbackQuery, state: FSMContext):
 async def reg_name(msg: Message, state: FSMContext):
     await state.update_data(full_name=msg.text)
     await msg.answer(
-        "Введите ваш username в Telegram (без @).\n"
-        "Это обязательно."
+        "Введите ваше имя в Телеграм (без @) или номер телефона, к которому привязан телеграм\n"
+        "(обязательное поле)"
     )
     await state.set_state(Registration.username)
 
@@ -264,25 +188,17 @@ async def reg_username(msg: Message, state: FSMContext):
 
     await state.update_data(username=username)
     await msg.answer(
-        "Введите email (или напишите 'нет', чтобы пропустить):"
+    "Введите email (если отсутствует, напишите 'нет'):"
     )
     await state.set_state(Registration.email)
 
 @dp.message(Registration.email)
 async def reg_email(msg: Message, state: FSMContext):
     text = msg.text.strip().lower()
-
     email = None if text == "нет" else msg.text
 
     await state.update_data(email=email)
-    await msg.answer(
-        "Ваш вопрос автору? (или напишите 'нет')"
-    )
-    await state.set_state(Registration.question)
 
-
-@dp.message(Registration.question)
-async def reg_question(msg: Message, state: FSMContext):
     data = await state.get_data()
 
     save_user(
@@ -290,19 +206,31 @@ async def reg_question(msg: Message, state: FSMContext):
         data["full_name"],
         data["username"],
         data["email"],
-        None if msg.text.lower() == "нет" else msg.text,
+        None,  # вопроса больше нет
     )
 
+
     await state.clear()
-    await msg.answer("Выберите способ оплаты:", reply_markup=payment_kb())
+    await msg.answer(
+    """💳 Выберите способ оплаты.
+
+После оплаты вам придёт <b>приглашение в канал мероприятия</b>.
+🕹 Включите, пожалуйста, уведомления о сообщениях в нашем чате, чтобы его не пропустить.""",
+    reply_markup=payment_kb(),
+    parse_mode="HTML"
+)
+
 
 
 @dp.callback_query(F.data == "pay_paypal")
 async def pay_paypal(cb: CallbackQuery):
     set_payment_status(cb.from_user.id, "pending")
     await cb.message.answer(
-        f"Оплатите по ссылке:\n{PAYPAL_LINK}", reply_markup=paid_kb()
-    )
+    "Оплатите 40€ по ссылке:\n"
+    f"{PAYPAL_LINK}",
+    reply_markup=paid_kb()
+)
+
 
 
 @dp.callback_query(F.data == "pay_rub")
@@ -336,8 +264,10 @@ async def paid(cb: CallbackQuery):
             reply_markup=admin_kb(cb.from_user.id),
         )
 
-    await cb.message.answer("Оплата отправлена на проверку.")
-
+    await cb.message.answer(
+    "Оплата отправлена на проверку.\n"
+    "Ожидайте приглашения."
+)
 
 
 @dp.callback_query(F.data.startswith("confirm_"))
@@ -361,13 +291,12 @@ async def confirm(cb: CallbackQuery):
 
     await bot.send_message(
         user_id,
-        "✅ Оплата подтверждена!\n\n"
-        "Вы приглашены в закрытую группу мастер-класса.\n"
-        "Пожалуйста, вступите в неё по ссылке ниже:\n\n"
-        f"{GROUP_INVITE_LINK}\n\n"
-        "⏰ Ссылка на Zoom придёт автоматически:\n"
-        "— за 24 часа\n"
-        "— за 1 час до начала",
+            "Оплата подтверждена! ✅\n\n"
+            "Переходите в закрытый канал мероприятия по ссылке ⤵️\n\n"
+            f"{GROUP_INVITE_LINK}\n\n"
+            "⌛️ Мы напомним вам о начале мастер-класса\n"
+            "— за сутки\n"
+            "— за 1 час до мероприятия",
     )
 
     await cb.message.edit_text("Подтверждено")
