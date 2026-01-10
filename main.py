@@ -226,7 +226,7 @@ async def reg_email(msg: Message, state: FSMContext):
 async def pay_paypal(cb: CallbackQuery):
     set_payment_status(cb.from_user.id, "pending")
     await cb.message.answer(
-    "Оплатите 40€ по ссылке:\n"
+    "Оплатите 50€ по ссылке:\n"
     f"{PAYPAL_LINK}",
     reply_markup=paid_kb()
 )
