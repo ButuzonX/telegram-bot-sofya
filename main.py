@@ -16,6 +16,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import datetime
 from datetime import timedelta
+from db import update_user_status
 
 import os
 from dotenv import load_dotenv
@@ -98,12 +99,16 @@ def save_user(user_id, full_name, username, email, question):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT OR REPLACE INTO users
-        (telegram_id, full_name, username, email, question)
-        VALUES (?, ?, ?, ?, ?)
-    """, (user_id, full_name, username, email, question))
+        UPDATE users
+        SET full_name = ?,
+            username = ?,
+            email = ?,
+            question = ?
+        WHERE telegram_id = ?
+    """, (full_name, username, email, question, user_id))
     conn.commit()
     conn.close()
+
 
 def get_user(user_id):
     conn = get_connection()
@@ -154,6 +159,20 @@ def set_last_check(dt):
 @dp.message(CommandStart())
 async def start(msg: Message):
 
+# фиксируем вход пользователя в БД
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT OR IGNORE INTO users (telegram_id, status, created_at)
+        VALUES (?, ?, ?)
+    """, (
+        msg.from_user.id,
+        "зашёл в бота",
+        datetime.datetime.utcnow().isoformat()
+    ))
+    conn.commit()
+    conn.close()
+
     photo = FSInputFile("images/cover.jpg")
 
     await msg.answer_photo(photo)
@@ -162,6 +181,78 @@ async def start(msg: Message):
     
     text = ("Чтобы продолжить, нажмите кнопку ниже.")
     await msg.answer(text, reply_markup=start_kb())
+
+# ---------------- /stats ----------------
+@dp.message(F.text == "/stats")
+async def stats(msg: Message):
+    if msg.from_user.id not in ADMIN_IDS:
+        await msg.answer("❌ У вас нет доступа к этой команде.")
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Кол-во пользователей по статусам
+    cur.execute("SELECT status, COUNT(*) FROM users GROUP BY status")
+    user_stats = cur.fetchall()
+
+    # Кол-во оплат по статусам
+    cur.execute("SELECT status, COUNT(*) FROM payments GROUP BY status")
+    payment_stats = cur.fetchall()
+
+    conn.close()
+
+    text = "<b>📊 Статистика бота</b>\n\n"
+
+    text += "<b>Пользователи:</b>\n"
+    for status, count in user_stats:
+        text += f"{status}: {count}\n"
+
+    text += "\n<b>Оплаты:</b>\n"
+    for status, count in payment_stats:
+        text += f"{status}: {count}\n"
+
+    await msg.answer(text, parse_mode="HTML")
+
+# ---------------- /users ----------------
+@dp.message(F.text == "/users")
+async def users_list(msg: Message):
+    if msg.from_user.id not in ADMIN_IDS:
+        await msg.answer("❌ У вас нет доступа к этой команде.")
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Получаем всех пользователей с информацией и статусом оплаты
+    cur.execute("""
+        SELECT u.telegram_id, u.full_name, u.username, u.email, p.status
+        FROM users u
+        LEFT JOIN payments p ON u.telegram_id = p.telegram_id
+        ORDER BY u.created_at ASC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await msg.answer("Пока нет зарегистрированных пользователей.")
+        return
+
+    # Формируем таблицу
+    header = f"{'ID':<8} {'Имя':<25} {'Username':<20} {'Email':<25} {'Оплата':<10}\n"
+    separator = "-" * 90 + "\n"
+    text = "<b>📋 Список пользователей</b>\n\n<pre>" + header + separator
+
+    for telegram_id, full_name, username, email, status in rows:
+        email = email if email else "-"
+        status = status if status else "-"
+        text += f"{str(telegram_id):<8} {full_name[:24]:<25} @{username[:19]:<20} {email[:24]:<25} {status:<10}\n"
+
+    text += "</pre>"
+
+    await msg.answer(text, parse_mode="HTML")
+
+# ---------------- Регистрация на мастер-класс ----------------
 
 @dp.callback_query(F.data == "register")
 async def register(cb: CallbackQuery, state: FSMContext):
@@ -209,7 +300,7 @@ async def reg_email(msg: Message, state: FSMContext):
         None,  # вопроса больше нет
     )
 
-
+    update_user_status(msg.from_user.id, "дошёл до оплаты")
     await state.clear()
     await msg.answer(
     """💳 Выберите способ оплаты.
@@ -250,6 +341,9 @@ async def paid(cb: CallbackQuery):
             "Пожалуйста, пройдите регистрацию заново через /start"
         )
         return
+
+ # ОБНОВЛЯЕМ СТАТУС
+    update_user_status(cb.from_user.id, "оплатил")
 
     full_name, username, email, _ = user
     email_text = email if email else "не указан"
