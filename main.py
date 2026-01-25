@@ -119,7 +119,7 @@ def get_user(user_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT full_name, username, email, question
+        SELECT full_name, username, email
         FROM users WHERE telegram_id=?
     """, (user_id,))
     row = cur.fetchone()
@@ -351,7 +351,7 @@ async def paid(cb: CallbackQuery):
  # ОБНОВЛЯЕМ СТАТУС
     update_user_status(cb.from_user.id, "оплатил")
 
-    full_name, username, email, _ = user
+    full_name, username, email = user
     email_text = email if email else "не указан"
 
     for admin_id in ADMIN_IDS:
