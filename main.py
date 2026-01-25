@@ -311,18 +311,20 @@ async def reg_email(msg: Message, state: FSMContext):
 
 
 @dp.callback_query(F.data == "pay_paypal")
-async def pay_paypal(cb: CallbackQuery):
+async def pay_paypal(cb: CallbackQuery, state: FSMContext):
+    await state.clear()
     set_payment_status(cb.from_user.id, "pending")
     await cb.message.answer(
-    "Оплатите 50€ по ссылке:\n"
-    f"{PAYPAL_LINK}",
-    reply_markup=paid_kb()
-)
+        "Оплатите 50€ по ссылке:\n"
+        f"{PAYPAL_LINK}",
+        reply_markup=paid_kb()
+    )
 
 
 
 @dp.callback_query(F.data == "pay_rub")
-async def pay_rub(cb: CallbackQuery):
+async def pay_rub(cb: CallbackQuery, state: FSMContext):
+    await state.clear()
     set_payment_status(cb.from_user.id, "pending")
     await cb.message.answer(RUB_CARD_TEXT, reply_markup=paid_kb())
 
