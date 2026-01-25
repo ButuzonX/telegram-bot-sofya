@@ -98,14 +98,21 @@ def save_user(user_id, full_name, username, email):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
+        INSERT OR IGNORE INTO users (telegram_id, status, created_at)
+        VALUES (?, 'зашёл в бота', datetime('now'))
+    """, (user_id,))
+
+    cur.execute("""
         UPDATE users
         SET full_name = ?,
             username = ?,
             email = ?
         WHERE telegram_id = ?
     """, (full_name, username, email, user_id))
+
     conn.commit()
     conn.close()
+
 
 
 def get_user(user_id):
