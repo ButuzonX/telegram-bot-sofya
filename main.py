@@ -94,18 +94,16 @@ def admin_kb(user_id):
     kb.button(text="❌ Отклонить", callback_data=f"reject_{user_id}")
     return kb.as_markup()
 
-
-def save_user(user_id, full_name, username, email, question):
+def save_user(user_id, full_name, username, email):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         UPDATE users
         SET full_name = ?,
             username = ?,
-            email = ?,
-            question = ?
+            email = ?
         WHERE telegram_id = ?
-    """, (full_name, username, email, question, user_id))
+    """, (full_name, username, email, user_id))
     conn.commit()
     conn.close()
 
@@ -297,7 +295,6 @@ async def reg_email(msg: Message, state: FSMContext):
         data["full_name"],
         data["username"],
         data["email"],
-        None,  # вопроса больше нет
     )
 
     update_user_status(msg.from_user.id, "дошёл до оплаты")
